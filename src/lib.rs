@@ -407,14 +407,13 @@ fn validate_vcpkg_root(path: &PathBuf) -> Result<(), Error> {
 }
 
 fn find_vcpkg_target(cfg: &Config, target_triplet: &TargetTriplet) -> Result<VcpkgTarget, Error> {
-    let vcpkg_root = try!(find_vcpkg_root(&cfg));
-
     let mut base = cfg
         .vcpkg_installed_root
         .clone()
         .or(env::var_os("VCPKG_INSTALLED_ROOT").map(PathBuf::from));
 
     let mut base = if base.is_none() {
+        let vcpkg_root = try!(find_vcpkg_root(&cfg));
         try!(validate_vcpkg_root(&vcpkg_root));
         vcpkg_root.join("installed")
     } else {
@@ -428,7 +427,7 @@ fn find_vcpkg_target(cfg: &Config, target_triplet: &TargetTriplet) -> Result<Vcp
     let lib_path = base.join("lib");
     let bin_path = base.join("bin");
     let include_path = base.join("include");
-    let packages_path = vcpkg_root.join("packages");
+    let packages_path = base.parent().and_then(|p| Some(p.join("packages")));
 
     Ok(VcpkgTarget {
         lib_path: lib_path,
@@ -676,16 +675,17 @@ fn load_port_manifest(
         }
     }
 
-    // Load .pc files for hints about intra-port library ordering.
-    let pkg_config_prefix = vcpkg_target
-        .packages_path
-        .join(format!("{}_{}", port, vcpkg_target.target_triplet.triplet))
-        .join("lib")
-        .join("pkgconfig");
-    // Try loading the pc files, if they are present. Not all ports have pkgconfig.
-    if let Ok(pc_files) = PcFiles::load_pkgconfig_dir(vcpkg_target, &pkg_config_prefix) {
-        // Use the .pc file data to potentially sort the libs to the correct order.
-        libs = pc_files.fix_ordering(libs);
+    if let Some(packages_path) = vcpkg_target.packages_path.as_ref() {
+        // Load .pc files for hints about intra-port library ordering.
+        let pkg_config_prefix = packages_path
+            .join(format!("{}_{}", port, vcpkg_target.target_triplet.triplet))
+            .join("lib")
+            .join("pkgconfig");
+        // Try loading the pc files, if they are present. Not all ports have pkgconfig.
+        if let Ok(pc_files) = PcFiles::load_pkgconfig_dir(vcpkg_target, &pkg_config_prefix) {
+            // Use the .pc file data to potentially sort the libs to the correct order.
+            libs = pc_files.fix_ordering(libs);
+        }
     }
 
     Ok((dlls, libs))
@@ -857,7 +857,7 @@ struct VcpkgTarget {
     // directory containing the status file
     status_path: PathBuf,
     // directory containing the install files per port.
-    packages_path: PathBuf,
+    packages_path: Option<PathBuf>,
 
     // target-specific settings.
     target_triplet: TargetTriplet,
