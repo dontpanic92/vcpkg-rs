@@ -1380,6 +1380,13 @@ fn detect_target_triplet() -> Result<TargetTriplet, Error> {
             lib_suffix: "a".into(),
             strip_lib_prefix: true,
         })
+    } else if target == "aarch64-linux-android" {
+        Ok(TargetTriplet {
+            triplet: "arm64-android".into(),
+            is_static: true,
+            lib_suffix: "a".into(),
+            strip_lib_prefix: true,
+        })
     } else if target.starts_with("wasm32-") {
         Ok(TargetTriplet {
             triplet: "wasm32-emscripten".into(),
