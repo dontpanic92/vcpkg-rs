@@ -47,16 +47,16 @@
 //! dlls from your Vcpkg installation to be available in your path.
 //!
 //! ## WASM 32
-//! 
+//!
 //! At this time, vcpkg has a single triplet for wasm32, wasm32-emscripten,
 //! while rust has several targets for wasm32.
 //! Currently all of these targets are mapped to wasm32-emscripten triplet.
-//! 
+//!
 //! You can open an [issue](https://github.com/mcgoo/vcpkg-rs/issue)
-//! if more wasm32 triplets come to vcpkg. 
-//! And just like other target, it is possibleto select a custom triplet 
+//! if more wasm32 triplets come to vcpkg.
+//! And just like other target, it is possibleto select a custom triplet
 //! using the `VCPKGRS_TRIPLET` environment variable.
-//! 
+//!
 //! # Environment variables
 //!
 //! A number of environment variables are available to globally configure which
@@ -408,13 +408,18 @@ fn validate_vcpkg_root(path: &PathBuf) -> Result<(), Error> {
 
 fn find_vcpkg_target(cfg: &Config, target_triplet: &TargetTriplet) -> Result<VcpkgTarget, Error> {
     let vcpkg_root = try!(find_vcpkg_root(&cfg));
-    try!(validate_vcpkg_root(&vcpkg_root));
 
     let mut base = cfg
         .vcpkg_installed_root
         .clone()
-        .or(env::var_os("VCPKG_INSTALLED_ROOT").map(PathBuf::from))
-        .unwrap_or(vcpkg_root.join("installed"));
+        .or(env::var_os("VCPKG_INSTALLED_ROOT").map(PathBuf::from));
+
+    let mut base = if base.is_none() {
+        try!(validate_vcpkg_root(&vcpkg_root));
+        vcpkg_root.join("installed")
+    } else {
+        base.unwrap()
+    };
 
     let status_path = base.join("vcpkg");
 
